@@ -5,7 +5,7 @@
 
 #include <string.h>
 
-#define ROUNDS_NUM 35
+//#define ROUNDS_NUM 35
 
 typedef unsigned char BitSequence;
 typedef unsigned long long DataLength;  
@@ -21,10 +21,10 @@ typedef struct {
 	unsigned char buffer[64];		/*the message block to be hashed; 64 bytes*/
 } hashState;
 
-HashReturn Init(hashState *state, int hashbitlen);
-HashReturn Update(hashState *state, const BitSequence *data, DataLength databitlen);
-HashReturn Final(hashState *state, BitSequence *hashval);
-HashReturn Hash(int hashbitlen, const BitSequence *data,DataLength databitlen, BitSequence *hashval);
+HashReturn Init(hashState *state, int hashbitlen, int rounds);
+HashReturn Update(hashState *state, const BitSequence *data, DataLength databitlen, int rounds);
+HashReturn Final(hashState *state, BitSequence *hashval, int rounds);
+HashReturn Hash(int hashbitlen, const BitSequence *data,DataLength databitlen, BitSequence *hashval, int rounds);
 
 /*The constant for the Round 0 of E8*/
 const unsigned char roundconstant_zero[64] = {0x6,0xa,0x0,0x9,0xe,0x6,0x6,0x7,0xf,0x3,0xb,0xc,0xc,0x9,0x0,0x8,0xb,0x2,0xf,0xb,0x1,0x3,0x6,0x6,0xe,0xa,0x9,0x5,0x7,0xd,0x3,0xe,0x3,0xa,0xd,0xe,0xc,0x1,0x7,0x5,0x1,0x2,0x7,0x7,0x5,0x0,0x9,0x9,0xd,0xa,0x2,0xf,0x5,0x9,0x0,0xb,0x0,0x6,0x6,0x7,0x3,0x2,0x2,0xa};
@@ -138,7 +138,7 @@ void update_roundconstant(hashState *state) {
 }
 
 /*Bijective function E*/
-void E8(hashState *state) 
+void E8(hashState *state, int rounds) 
 {
 	unsigned int i;
 	unsigned char t0,t1,t2,t3;
@@ -163,7 +163,7 @@ void E8(hashState *state)
 	} 
 
 	/* 35 rounds */
-	for (i = 0; i < ROUNDS_NUM; i++) {
+	for (i = 0; i < rounds; i++) {
 		R8(state);
 		update_roundconstant(state);
 	}
@@ -195,7 +195,7 @@ void E8(hashState *state)
 
 
 /* compression function F8 */
-void F8(hashState *state) 
+void F8(hashState *state, int rounds) 
 {
 	unsigned int i;
 
@@ -206,14 +206,14 @@ void F8(hashState *state)
 	for (i = 0; i < 64; i++) state->H[i] ^= state->buffer[i];
 
 	/* Bijective function E8 */
-    E8(state);
+    E8(state, rounds);
 
 	/* xor the message with the last half of H */
 	for (i = 0; i < 64; i++) state->H[i+64] ^= state->buffer[i];
 }
 
 
-HashReturn Init(hashState *state, int hashbitlen) 
+HashReturn Init(hashState *state, int hashbitlen, int rounds) 
 {
 	unsigned int i;
 
@@ -226,13 +226,13 @@ HashReturn Init(hashState *state, int hashbitlen)
 	state->H[1] = hashbitlen & 0xff;
 	state->H[0] = (hashbitlen >> 8) & 0xff;
 	
-	F8(state);
+	F8(state, rounds);
 
 	return(SUCCESS);
 }
 
 
-HashReturn Update(hashState *state, const BitSequence *data, DataLength databitlen) 
+HashReturn Update(hashState *state, const BitSequence *data, DataLength databitlen, int rounds) 
 {
 	DataLength i;
 
@@ -241,7 +241,7 @@ HashReturn Update(hashState *state, const BitSequence *data, DataLength databitl
 	/*compress the message blocks except the last partial block*/
 	for (i = 0; (i+512) <= databitlen; i = i+512) {
 		memcpy(state->buffer, data + (i >> 3), 64);
-		F8(state);
+		F8(state, rounds);
 	}
 
 	/*storing the partial block into buffer*/
@@ -256,7 +256,7 @@ HashReturn Update(hashState *state, const BitSequence *data, DataLength databitl
 
 
 /*padding the message, truncate the hash value H and obtain the message digest*/
-HashReturn Final(hashState *state, BitSequence *hashval) 
+HashReturn Final(hashState *state, BitSequence *hashval, int rounds) 
 {
 	unsigned int i;
 
@@ -272,12 +272,12 @@ HashReturn Final(hashState *state, BitSequence *hashval)
 		state->buffer[58] = (state->databitlen >> 40) & 0xff;
 		state->buffer[57] = (state->databitlen >> 48) & 0xff;
 		state->buffer[56] = (state->databitlen >> 56) & 0xff;
-		F8(state);
+		F8(state, rounds);
 	}
 	else {
 		/*pad and process the partial block*/
 		state->buffer[((state->databitlen & 0x1ff) >> 3)] |= 1 << (7- (state->databitlen & 7));
-		F8(state);
+		F8(state, rounds);
 		for (i = 0; i < 64; i++) state->buffer[i] = 0;
 		/*precess the last padded block*/
 		state->buffer[63] = state->databitlen & 0xff;
@@ -288,7 +288,7 @@ HashReturn Final(hashState *state, BitSequence *hashval)
 		state->buffer[58] = (state->databitlen >> 40) & 0xff;
 		state->buffer[57] = (state->databitlen >> 48) & 0xff;
 		state->buffer[56] = (state->databitlen >> 56) & 0xff;
-		F8(state);
+		F8(state, rounds);
 	}
 
 	/*trunacting the final hash value to generate the message digest*/
@@ -309,14 +309,14 @@ HashReturn Final(hashState *state, BitSequence *hashval)
 
 
 /*hash the message*/
-HashReturn Hash(int hashbitlen, const BitSequence *data,DataLength databitlen, BitSequence *hashval) 
+HashReturn Hash(int hashbitlen, const BitSequence *data,DataLength databitlen, BitSequence *hashval, int rounds) 
 {
 	hashState state;
 
 	if ( hashbitlen == 224 || hashbitlen == 256 || hashbitlen == 384 || hashbitlen == 512 ) {	
-		Init(&state, hashbitlen);
-		Update(&state, data, databitlen);
-		Final(&state, hashval);
+		Init(&state, hashbitlen, rounds);
+		Update(&state, data, databitlen, rounds);
+		Final(&state, hashval, rounds);
 		return SUCCESS;
 	}
 	else 
