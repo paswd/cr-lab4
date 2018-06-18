@@ -58,7 +58,7 @@ void R8(hashState *state)
 	/*L Layer*/
 	for (i = 0; i < 256; i=i+2) L(tem[i], tem[i+1]);
 
-	/*The following is the permuation layer P_8$
+	/*The following is the permuation layer P_8$*/
 
 	/*initial swap Pi_8*/
 	for ( i = 0; i < 256; i=i+4) {

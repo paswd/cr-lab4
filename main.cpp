@@ -6,7 +6,8 @@ using namespace std;
 
 int main(void) {
 	const int hashbitlen = 512;
-	const DataLength dlen = hashbitlen / 8;
+	const int byte_size = 8;
+	const DataLength dlen = hashbitlen / byte_size;
 	BitSequence reshash[dlen];
 	BitSequence data[dlen];
 	//int rounds = 42; //original
@@ -16,10 +17,14 @@ int main(void) {
 		HashReturn status = Hash(hashbitlen, data, dlen, reshash, rounds);
 		for (size_t i = 0; i < (size_t) dlen; i++) {
 			if (data[i] != reshash[i]) {
-				change_cnt++;
+				change_cnt += byte_size;
 			}
 		}
-		cout << rounds << "\t" << change_cnt << endl;
+		if (status == SUCCESS) {
+			cout << rounds << "\t" << change_cnt << endl;
+		} else {
+			cout << "ERROR" << endl;
+		}
 	}
 	return 0;	
 }
