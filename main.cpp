@@ -1,5 +1,7 @@
 #include <iostream>
 #include <string>
+#include <limits>
+#include <cmath>
 #include "jh_ref.h"
 
 using namespace std;
@@ -15,6 +17,8 @@ int main(void) {
 	//int rounds = 42; //original
 	cin >> data;
 	size_t summ = 0;
+	size_t min_val = std::numeric_limits<size_t>::max();
+	size_t max_val = 0;
 	for (int rounds = ROUNDS_RANGE_BEGIN; rounds < ROUNDS_RANGE_END; rounds++) {
 		size_t change_cnt = 0;
 		HashReturn status = Hash(HASHBITLEN, data, dlen, reshash, rounds);
@@ -28,6 +32,12 @@ int main(void) {
 			}
 		}
 		if (status == SUCCESS) {
+			if (change_cnt > max_val) {
+				max_val = change_cnt;
+			}
+			if (change_cnt < min_val) {
+				min_val = change_cnt;
+			}
 			summ += change_cnt;
 			cout << rounds << "\t" << change_cnt << endl;
 		} else {
@@ -35,6 +45,8 @@ int main(void) {
 		}
 	}
 	long double middle = (long double) summ / (long double) (ROUNDS_RANGE_END - ROUNDS_RANGE_BEGIN);
+	long double max_deviation = max(abs(middle - (long double) min_val), abs(middle - (long double) max_val));
 	cout << endl << "Middle = " << middle << endl;
+	cout << "Maximum deviation = " << max_deviation << endl;
 	return 0;
 }
